@@ -1,9 +1,58 @@
-import React from 'react';
-import { Title, Form, Icon, Repositories } from './styles';
+import React, {useState, useEffect, FormEvent} from 'react';
+import { Title, Form, Icon, Repositories, Error } from './styles';
 import {FiChevronRight} from 'react-icons/fi';
+import { Link } from 'react-router-dom';
 import logoImg from '../../assets/explore.svg';
+import api from '../../services/api';
+
+interface Repository{
+  full_name: string,
+  description: string,
+  owner: {
+    login: string,
+    avatar_url: string,
+  } 
+
+}
 
 const Dashboard: React.FC = () => {
+  const [repositories, setRepositories] = useState<Repository[]>(() => {
+    const storageRepository = localStorage.getItem('@GithubExplorer:repositories');
+
+    if(storageRepository){
+      return JSON.parse(storageRepository);
+    }
+
+    return [];
+  });
+  const [newRepo, setNewRepo] = useState('');
+  const [inputError, setInputError] = useState('');
+
+ 
+  useEffect(() =>{
+    localStorage.setItem('@GithubExplorer:repositories', JSON.stringify(repositories));
+
+  }, [repositories]);
+
+  async function handleAddRepository(event: FormEvent<HTMLFormElement>,): Promise<void> {
+    event.preventDefault();
+    if(!newRepo){
+      setInputError('Digite o autor/nome do repositorio');
+      return;
+    }
+    try {
+      const response = await api.get<Repository>(`repos/${newRepo}`);
+      console.log(response.data);
+      const repository = response.data;
+  
+      setRepositories([... repositories, repository]);
+      setNewRepo('');
+      setInputError('');
+      
+    } catch (error) {
+      setInputError('Erro na busca por esse repositorio');
+    }
+  }
   return (
     <>
       <Icon>
@@ -13,46 +62,32 @@ const Dashboard: React.FC = () => {
       </Icon>
       <Title>Explore repositorios no Github</Title>
 
-      <Form>
-        <input placeholder="Digite o nome do repositorio" />
+      <Form hasError={!!inputError} onSubmit={handleAddRepository}>
+        <input
+        value={newRepo}
+        onChange= {(e) => setNewRepo(e.target.value)}
+        placeholder="Digite o nome do repositorio" />
         <button type="submit">Pesquisar</button>
       </Form>
-
+      { inputError && <Error>{inputError}</Error>}
       <Repositories>
-        <a href="text">
-          <img src="https://avatars3.githubusercontent.com/u/55562406?s=460&u=bbe8bd4e4795983cc11437898019654625af6cd9&v=4"
-            alt="Diego fernandes"
-          />
+        {repositories.map(repository => (
+          
+          <Link key={repository.full_name} to={`/repositories/${repository.full_name}`}>
+          <img src={repository.owner.avatar_url}
+            alt={repository.owner.login}
+            />
           <div>
-            <strong>rocketseat/unform</strong>
-            <p>Easy peasy textao</p>
+            <strong>{repository.full_name}</strong>
+            <p>{repository.description}</p>
           </div>
 
           <FiChevronRight size={20} />
-        </a> 
-        <a href="text">
-          <img src="https://avatars3.githubusercontent.com/u/55562406?s=460&u=bbe8bd4e4795983cc11437898019654625af6cd9&v=4"
-            alt="Diego fernandes"
-          />
-          <div>
-            <strong>rocketseat/unform</strong>
-            <p>Easy peasy textao</p>
-          </div>
-
-          <FiChevronRight size={20}/>
-        </a> 
-        <a href="text">
-          <img src="https://avatars3.githubusercontent.com/u/55562406?s=460&u=bbe8bd4e4795983cc11437898019654625af6cd9&v=4"
-            alt="Diego fernandes"
-          />
-          <div>
-            <strong>rocketseat/unform</strong>
-            <p>Easy peasy textao</p>
-          </div>
-
-          <FiChevronRight size={20}/>
-        </a> 
+        </Link> 
+        ))}
+      
       </Repositories>
+
     </>
   );
 };
